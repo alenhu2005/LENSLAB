@@ -2,33 +2,147 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔬透鏡</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光學</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #2c3e50; color: #ecf0f1; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        h1 { margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
-        .canvas-container { background: #fff; border: 4px solid #34495e; border-radius: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); margin-bottom: 20px; position: relative; }
-        canvas { display: block; }
-        .controls { background: #ecf0f1; color: #2c3e50; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 850px; max-width: 95%; }
-        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #bdc3c7; }
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background-color: #2c3e50; 
+            color: #ecf0f1; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 10px; /* 手機版邊距縮小 */
+            margin: 0; 
+        }
+        h1 { 
+            margin-bottom: 10px; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+            font-size: 1.5rem; /* 手機版標題縮小 */
+            text-align: center;
+        }
+        .canvas-container { 
+            background: #fff; 
+            border: 2px solid #34495e; 
+            border-radius: 8px; 
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2); 
+            margin-bottom: 15px; 
+            position: relative; 
+            width: 100%; 
+            max-width: 900px; /* 限制最大寬度 */
+            overflow: hidden; /* 防止溢出 */
+        }
+        /* 關鍵 CSS：讓 Canvas 隨螢幕縮放，保持比例 */
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: auto; 
+        }
+        .controls { 
+            background: #ecf0f1; 
+            color: #2c3e50; 
+            padding: 15px; 
+            border-radius: 12px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
+            width: 100%; 
+            max-width: 850px; 
+            box-sizing: border-box; /* 確保 padding 不會撐破寬度 */
+        }
+        .control-group { 
+            margin-bottom: 15px; 
+            padding-bottom: 15px; 
+            border-bottom: 1px solid #bdc3c7; 
+        }
         .control-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        .row { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
-        input[type=range] { width: 150px; cursor: pointer; accent-color: #2980b9; }
-        label { font-weight: bold; display: flex; align-items: center; gap: 5px; color: #2c3e50;}
-        button { background-color: #e67e22; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        button:hover { background-color: #d35400; transform: translateY(-2px); }
-        .switch-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        .radio-label { padding: 6px 12px; border-radius: 16px; cursor: pointer; transition: 0.2s; font-size: 0.9em; background: #bdc3c7; color: #555; }
+        
+        .row { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 15px; 
+            flex-wrap: wrap; /* 允許換行 */
+            margin: 10px 0; 
+        }
+        
+        /* 優化滑桿在手機上的操作 */
+        input[type=range] { 
+            width: 100%; 
+            max-width: 200px; 
+            height: 20px;
+            cursor: pointer; 
+            accent-color: #2980b9; 
+        }
+        
+        label { 
+            font-weight: bold; 
+            display: flex; 
+            align-items: center; 
+            gap: 5px; 
+            color: #2c3e50;
+            white-space: nowrap; /* 防止文字斷行難看 */
+        }
+        
+        button { 
+            background-color: #e67e22; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; /* 加大按鈕好點擊 */
+            border-radius: 20px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: 0.2s; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+            font-size: 0.9rem;
+        }
+        button:active { transform: scale(0.95); }
+        
+        .switch-container { 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+        }
+        .radio-label { 
+            padding: 8px 12px; /* 加大點擊區 */
+            border-radius: 16px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            font-size: 0.85em; 
+            background: #bdc3c7; 
+            color: #555; 
+            margin-bottom: 5px;
+        }
         input[type="radio"] { display: none; }
-        input[type="radio"]:checked + .radio-label { background-color: #2980b9; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .status-panel { display: flex; justify-content: space-around; background-color: #fff; padding: 10px; border-radius: 8px; margin-top: 10px; border: 2px solid #bdc3c7; }
-        .info-tag { font-size: 0.95em; color: #333; }
+        input[type="radio"]:checked + .radio-label { 
+            background-color: #2980b9; 
+            color: white; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+        }
+
+        .status-panel { 
+            display: flex; 
+            flex-wrap: wrap; /* 允許數據換行 */
+            justify-content: center; 
+            gap: 10px;
+            background-color: #fff; 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin-top: 10px; 
+            border: 2px solid #bdc3c7; 
+        }
+        .info-tag { 
+            font-size: 0.9em; 
+            color: #333; 
+            background: #f5f6fa;
+            padding: 5px 8px;
+            border-radius: 4px;
+        }
         .highlight { font-weight: bold; color: #d63384; }
     </style>
 </head>
 <body>
 
-    <h1>🔬透鏡</h1>
+    <h1>🔬 全能光學實驗室 V15 (手機版)</h1>
 
     <div class="canvas-container">
         <canvas id="opticsCanvas" width="900" height="500"></canvas>
@@ -47,22 +161,27 @@
         
         <div class="control-group">
             <div class="row">
-                 <label title="調整焦距 (平面鏡無效)">🔎 焦距 (f): <input type="range" id="focalLen" min="50" max="180" value="120" oninput="updateSettings()"><span id="fText" style="width:30px;">120</span></label>
+                 <label title="調整焦距">🔎 焦距(f): <input type="range" id="focalLen" min="50" max="180" value="120" oninput="updateSettings()"><span id="fText" style="width:30px;">120</span></label>
+            </div>
+            <div class="row">
                  <label>📍 物距: <input type="range" id="objPos" min="0" max="440" value="200" oninput="draw()"></label>
+            </div>
+            <div class="row">
                  <button onclick="toggleObjectShape()">🔄 切換物體</button>
-                 <label style="background:#ffeaa7; padding:5px 10px; border-radius:15px;"><input type="checkbox" id="blockLens" onchange="updateSettings()"> 遮住一半</label>
+                 <label style="background:#ffeaa7; padding:8px 15px; border-radius:15px; font-size:0.9em;"><input type="checkbox" id="blockLens" onchange="updateSettings()"> 遮住一半</label>
             </div>
         </div>
         
         <div class="status-panel">
-            <div class="info-tag">物距 do: <span id="uDisplay">0</span></div>
-            <div class="info-tag">像距 di: <span id="vDisplay">0</span></div>
-            <div class="info-tag">倍率 m: <span id="mDisplay">0</span></div>
-            <div class="info-tag"><span id="imageNature" class="highlight">...</span></div>
+            <div class="info-tag">物距: <span id="uDisplay">0</span></div>
+            <div class="info-tag">像距: <span id="vDisplay">0</span></div>
+            <div class="info-tag">倍率: <span id="mDisplay">0</span></div>
+            <div class="info-tag" style="width: 100%; text-align: center; margin-top:5px;"><span id="imageNature" class="highlight">...</span></div>
         </div>
     </div>
 
     <script>
+        // 程式邏輯維持 V15 完美版，無需更動
         const canvas = document.getElementById('opticsCanvas');
         const ctx = canvas.getContext('2d');
         
@@ -171,7 +290,7 @@
                 }
             }
 
-            // === Ray 1 (橘色): 平行入射 ===
+            // Ray 1
             ctx.strokeStyle = '#e67e22';
             line(objX, objTopY, lensX, objTopY); 
             if (!isBlocked || objTopY > lensY) {
@@ -182,7 +301,7 @@
                 if(currentType === 'convexMirror') line(lensX, objTopY, focusRightX, lensY, true);
             }
 
-            // === Ray 2 (紫色): 鏡心/對稱 ===
+            // Ray 2
             ctx.strokeStyle = '#9b59b6';
             if (isLens) {
                 let slope = (imgTopY - objTopY) / (imgX - objX);
@@ -194,12 +313,11 @@
                 drawTrace(lensX, lensY, imgX, imgTopY);
             }
 
-            // === Ray 3 (綠色): 焦點光線 ===
+            // Ray 3 (Special: Concave Lens & Convex Mirror go through Left Focus as requested)
             ctx.strokeStyle = '#2ecc71';
             let hitY = imgTopY; 
             
             if (currentType === 'convexLens' && u > f_mag) {
-                // 凸透鏡: 過左焦
                 if(!(isBlocked && hitY < lensY)) {
                     line(objX, objTopY, lensX, hitY);
                     line(lensX, hitY, farRight, hitY);
@@ -208,7 +326,6 @@
                 }
             } 
             else if (currentType === 'concaveLens') {
-                // 凹透鏡：過左側焦點 (u > f)
                 if (u > f_mag + 5) {
                      let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
                      let hitY_Concave = objTopY + slopeIn * (lensX - objX); 
@@ -219,7 +336,6 @@
                 }
             }
             else if (currentType === 'concaveMirror') {
-                // 凹面鏡：過左焦
                  if (u > f_mag) { 
                      let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
                      let hitY_Mirror = objTopY + slopeIn * (lensX - objX);
@@ -231,28 +347,14 @@
                  }
             }
             else if (currentType === 'convexMirror') {
-                // ★★★ 凸面鏡：過左側焦點 (User Requirement) ★★★
-                // 只有當物體在左焦點外側 (u > f) 才能畫這條 "Obj -> F_left -> Mirror"
-                // 注意：這條光線是往鏡子射過去的
                 if (u > f_mag + 5) {
-                    // 1. 計算經過左焦點後的入射打點
-                    // 線： (objX, objTopY) 到 (focusLeftX, lensY)
                     let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
-                    let hitY_Mirror = lensY + slopeIn * (lensX - focusLeftX); // hitY at LensX
-
+                    let hitY_Mirror = lensY + slopeIn * (lensX - focusLeftX); 
                     if(!(isBlocked && hitY_Mirror < lensY)) {
-                        // 畫入射線 (Obj -> HitPoint)
                         line(objX, objTopY, lensX, hitY_Mirror);
-                        
-                        // 反射線：逆向鎖定 (從打點出發，反向對準像)
-                        // 反射光是往左的，虛像在右邊
-                        // 所以我們連線 (HitPoint) 和 (Image)，取得斜率，然後往左畫
                         let slopeRef = (hitY_Mirror - imgTopY) / (lensX - imgX);
                         let endY = hitY_Mirror + slopeRef * (farLeft - lensX);
-                        
                         line(lensX, hitY_Mirror, farLeft, endY);
-                        
-                        // 虛線回溯
                         line(lensX, hitY_Mirror, imgX, imgTopY, true);
                     }
                 }
@@ -311,4 +413,3 @@
     </script>
 </body>
 </html>
-
