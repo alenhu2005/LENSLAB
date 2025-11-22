@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全能光學實驗室 V15 (凸面鏡左焦修正版)</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #2c3e50; color: #ecf0f1; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        h1 { margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .canvas-container { background: #fff; border: 4px solid #34495e; border-radius: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); margin-bottom: 20px; position: relative; }
+        canvas { display: block; }
+        .controls { background: #ecf0f1; color: #2c3e50; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 850px; max-width: 95%; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #bdc3c7; }
+        .control-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .row { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
+        input[type=range] { width: 150px; cursor: pointer; accent-color: #2980b9; }
+        label { font-weight: bold; display: flex; align-items: center; gap: 5px; color: #2c3e50;}
+        button { background-color: #e67e22; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button:hover { background-color: #d35400; transform: translateY(-2px); }
+        .switch-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .radio-label { padding: 6px 12px; border-radius: 16px; cursor: pointer; transition: 0.2s; font-size: 0.9em; background: #bdc3c7; color: #555; }
+        input[type="radio"] { display: none; }
+        input[type="radio"]:checked + .radio-label { background-color: #2980b9; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .status-panel { display: flex; justify-content: space-around; background-color: #fff; padding: 10px; border-radius: 8px; margin-top: 10px; border: 2px solid #bdc3c7; }
+        .info-tag { font-size: 0.95em; color: #333; }
+        .highlight { font-weight: bold; color: #d63384; }
+    </style>
+</head>
+<body>
+
+    <h1>🔬透鏡</h1>
+
+    <div class="canvas-container">
+        <canvas id="opticsCanvas" width="900" height="500"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="switch-container">
+                <label><input type="radio" name="optType" value="convexLens" checked onchange="updateSettings()"><span class="radio-label">凸透鏡</span></label>
+                <label><input type="radio" name="optType" value="concaveLens" onchange="updateSettings()"><span class="radio-label">凹透鏡</span></label>
+                <label><input type="radio" name="optType" value="planeMirror" onchange="updateSettings()"><span class="radio-label">平面鏡</span></label>
+                <label><input type="radio" name="optType" value="concaveMirror" onchange="updateSettings()"><span class="radio-label">凹面鏡</span></label>
+                <label><input type="radio" name="optType" value="convexMirror" onchange="updateSettings()"><span class="radio-label">凸面鏡</span></label>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <div class="row">
+                 <label title="調整焦距 (平面鏡無效)">🔎 焦距 (f): <input type="range" id="focalLen" min="50" max="180" value="120" oninput="updateSettings()"><span id="fText" style="width:30px;">120</span></label>
+                 <label>📍 物距: <input type="range" id="objPos" min="0" max="440" value="200" oninput="draw()"></label>
+                 <button onclick="toggleObjectShape()">🔄 切換物體</button>
+                 <label style="background:#ffeaa7; padding:5px 10px; border-radius:15px;"><input type="checkbox" id="blockLens" onchange="updateSettings()"> 遮住一半</label>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <div class="info-tag">物距 do: <span id="uDisplay">0</span></div>
+            <div class="info-tag">像距 di: <span id="vDisplay">0</span></div>
+            <div class="info-tag">倍率 m: <span id="mDisplay">0</span></div>
+            <div class="info-tag"><span id="imageNature" class="highlight">...</span></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('opticsCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentType = 'convexLens'; 
+        let isBlocked = false;
+        let objectType = 'candle'; 
+        let f_mag = 120; 
+        
+        const lensX = 450; 
+        const lensY = 250; 
+        const baseObjHeight = 70; 
+
+        function toggleObjectShape() {
+            objectType = (objectType === 'candle') ? 'letterF' : 'candle';
+            draw();
+        }
+        function updateSettings() {
+            const radios = document.getElementsByName('optType');
+            for(let r of radios) if(r.checked) currentType = r.value;
+            isBlocked = document.getElementById('blockLens').checked;
+            f_mag = parseInt(document.getElementById('focalLen').value);
+            document.getElementById('fText').innerText = f_mag;
+            document.getElementById('focalLen').disabled = (currentType === 'planeMirror');
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid(); drawAxis(); 
+            drawOpticalElement(); drawPoints(); 
+
+            const sliderVal = document.getElementById('objPos').value;
+            let objX = parseFloat(sliderVal);
+            if(objX >= lensX - 10) objX = lensX - 10;
+
+            const u = lensX - objX; 
+            let v, m, imgX;
+            let f = f_mag; 
+
+            if (currentType === 'planeMirror') {
+                v = -u; m = 1; imgX = lensX - v; 
+            } else {
+                if (currentType === 'concaveLens' || currentType === 'convexMirror') f = -f_mag;
+                else f = f_mag;
+                if (u === f) v = Infinity; else v = (f * u) / (u - f);
+                m = -v / u;
+                if (currentType.includes('Lens')) imgX = lensX + v;
+                else imgX = lensX - v; 
+            }
+
+            const imgTopY = lensY - (baseObjHeight * m);
+
+            drawObject(objX, lensY, 1.0);
+
+            if ((currentType === 'convexLens' || currentType === 'concaveMirror') && Math.abs(u - f_mag) < 2) {
+                 drawParallelLight(objX, baseObjHeight);
+                 updateInfo(u, Infinity, Infinity, "不成像 (平行光)");
+            } else {
+                drawRaysTargeted(objX, baseObjHeight, imgX, imgTopY, u, v);
+                let alpha = (v < 0 && !currentType.includes('plane')) ? 0.4 : 0.9; 
+                if (currentType === 'planeMirror') alpha = 0.5; 
+                if (isBlocked) alpha *= 0.4;
+                drawObject(imgX, lensY, m, alpha);
+                updateInfo(u, v, m, determineNature(u, v, m));
+            }
+            if (isBlocked) drawBlocker();
+        }
+
+        function drawRaysTargeted(objX, h, imgX, imgTopY, u, v) {
+            const objTopY = lensY - h;
+            const farRight = canvas.width + 300;
+            const farLeft = -300;
+            const focusRightX = lensX + f_mag;
+            const focusLeftX = lensX - f_mag;
+            
+            ctx.lineWidth = 1.5;
+            const isLens = currentType.includes('Lens');
+
+            function line(sx, sy, ex, ey, dashed=false) {
+                ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
+                if(dashed) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+            
+            function drawTrace(lensHitX, lensHitY, targetX, targetY) {
+                let slope = (targetY - lensHitY) / (targetX - lensHitX);
+                if (isLens) {
+                    let endY = lensHitY + slope * (farRight - lensHitX);
+                    if (v > 0) { 
+                        line(lensHitX, lensHitY, targetX, targetY); 
+                        line(targetX, targetY, farRight, endY); 
+                    } else { 
+                        line(lensHitX, lensHitY, farRight, endY); 
+                        line(lensHitX, lensHitY, targetX, targetY, true); 
+                    }
+                } else {
+                    let endY_Left = lensHitY + slope * (farLeft - lensHitX); 
+                    let endY_Right = lensHitY + slope * (farRight - lensHitX);
+                    if (v > 0) { 
+                        line(lensHitX, lensHitY, targetX, targetY);
+                        line(targetX, targetY, farLeft, endY_Left);
+                    } else { 
+                        line(lensHitX, lensHitY, farLeft, endY_Left);
+                        line(lensHitX, lensHitY, targetX, targetY, true);
+                    }
+                }
+            }
+
+            // === Ray 1 (橘色): 平行入射 ===
+            ctx.strokeStyle = '#e67e22';
+            line(objX, objTopY, lensX, objTopY); 
+            if (!isBlocked || objTopY > lensY) {
+                drawTrace(lensX, objTopY, imgX, imgTopY);
+                if(currentType === 'convexLens') line(lensX, objTopY, focusRightX, lensY, true); 
+                if(currentType === 'concaveLens') line(lensX, objTopY, focusLeftX, lensY, true);
+                if(currentType === 'concaveMirror') line(lensX, objTopY, focusLeftX, lensY, true); 
+                if(currentType === 'convexMirror') line(lensX, objTopY, focusRightX, lensY, true);
+            }
+
+            // === Ray 2 (紫色): 鏡心/對稱 ===
+            ctx.strokeStyle = '#9b59b6';
+            if (isLens) {
+                let slope = (imgTopY - objTopY) / (imgX - objX);
+                let endY = objTopY + slope * (farRight - objX);
+                line(objX, objTopY, farRight, endY);
+                if (v < 0) line(lensX, lensY, imgX, imgTopY, true);
+            } else {
+                line(objX, objTopY, lensX, lensY);
+                drawTrace(lensX, lensY, imgX, imgTopY);
+            }
+
+            // === Ray 3 (綠色): 焦點光線 ===
+            ctx.strokeStyle = '#2ecc71';
+            let hitY = imgTopY; 
+            
+            if (currentType === 'convexLens' && u > f_mag) {
+                // 凸透鏡: 過左焦
+                if(!(isBlocked && hitY < lensY)) {
+                    line(objX, objTopY, lensX, hitY);
+                    line(lensX, hitY, farRight, hitY);
+                    if(v < 0) line(lensX, hitY, imgX, hitY, true);
+                    line(objX, objTopY, focusLeftX, lensY, true); 
+                }
+            } 
+            else if (currentType === 'concaveLens') {
+                // 凹透鏡：過左側焦點 (u > f)
+                if (u > f_mag + 5) {
+                     let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
+                     let hitY_Concave = objTopY + slopeIn * (lensX - objX); 
+                     if(!(isBlocked && hitY_Concave < lensY)) {
+                         line(objX, objTopY, lensX, hitY_Concave);
+                         drawTrace(lensX, hitY_Concave, imgX, imgTopY);
+                     }
+                }
+            }
+            else if (currentType === 'concaveMirror') {
+                // 凹面鏡：過左焦
+                 if (u > f_mag) { 
+                     let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
+                     let hitY_Mirror = objTopY + slopeIn * (lensX - objX);
+                     if(!(isBlocked && hitY_Mirror < lensY)) {
+                         line(objX, objTopY, lensX, hitY_Mirror); 
+                         line(lensX, hitY_Mirror, farLeft, hitY_Mirror); 
+                         if(v<0) line(lensX, hitY_Mirror, imgX, imgTopY, true);
+                     }
+                 }
+            }
+            else if (currentType === 'convexMirror') {
+                // ★★★ 凸面鏡：過左側焦點 (User Requirement) ★★★
+                // 只有當物體在左焦點外側 (u > f) 才能畫這條 "Obj -> F_left -> Mirror"
+                // 注意：這條光線是往鏡子射過去的
+                if (u > f_mag + 5) {
+                    // 1. 計算經過左焦點後的入射打點
+                    // 線： (objX, objTopY) 到 (focusLeftX, lensY)
+                    let slopeIn = (lensY - objTopY) / (focusLeftX - objX);
+                    let hitY_Mirror = lensY + slopeIn * (lensX - focusLeftX); // hitY at LensX
+
+                    if(!(isBlocked && hitY_Mirror < lensY)) {
+                        // 畫入射線 (Obj -> HitPoint)
+                        line(objX, objTopY, lensX, hitY_Mirror);
+                        
+                        // 反射線：逆向鎖定 (從打點出發，反向對準像)
+                        // 反射光是往左的，虛像在右邊
+                        // 所以我們連線 (HitPoint) 和 (Image)，取得斜率，然後往左畫
+                        let slopeRef = (hitY_Mirror - imgTopY) / (lensX - imgX);
+                        let endY = hitY_Mirror + slopeRef * (farLeft - lensX);
+                        
+                        line(lensX, hitY_Mirror, farLeft, endY);
+                        
+                        // 虛線回溯
+                        line(lensX, hitY_Mirror, imgX, imgTopY, true);
+                    }
+                }
+            }
+        }
+
+        function drawParallelLight(objX, h) {
+             const objTopY = lensY - h;
+             ctx.strokeStyle = '#e67e22';
+             ctx.beginPath(); ctx.moveTo(objX, objTopY); ctx.lineTo(canvas.width, objTopY); ctx.stroke();
+        }
+
+        function drawOpticalElement() {
+            ctx.lineWidth = 2; ctx.strokeStyle = '#2980b9'; ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
+            let t = 10 + (180 - f_mag) * 0.15; 
+            ctx.beginPath();
+            switch(currentType) {
+                case 'convexLens': ctx.moveTo(lensX, lensY-150); ctx.quadraticCurveTo(lensX+t, lensY, lensX, lensY+150); ctx.quadraticCurveTo(lensX-t, lensY, lensX, lensY-150); ctx.fill(); ctx.stroke(); break;
+                case 'concaveLens': ctx.moveTo(lensX-t, lensY-150); ctx.quadraticCurveTo(lensX+5, lensY, lensX-t, lensY+150); ctx.lineTo(lensX+t, lensY+150); ctx.quadraticCurveTo(lensX-5, lensY, lensX+t, lensY-150); ctx.fill(); ctx.stroke(); break;
+                case 'planeMirror': ctx.moveTo(lensX, lensY-150); ctx.lineTo(lensX, lensY+150); ctx.stroke(); drawHashMarks(lensX, lensY-150, lensY+150, 1); break;
+                case 'concaveMirror': ctx.beginPath(); ctx.moveTo(lensX, lensY-150); ctx.quadraticCurveTo(lensX+20, lensY, lensX, lensY+150); ctx.stroke(); drawHashMarksCurve(lensX, lensY-150, lensY+150, 20, 1); break;
+                case 'convexMirror': ctx.beginPath(); ctx.moveTo(lensX, lensY-150); ctx.quadraticCurveTo(lensX-20, lensY, lensX, lensY+150); ctx.stroke(); drawHashMarksCurve(lensX, lensY-150, lensY+150, -20, 1); break;
+            }
+            ctx.beginPath(); ctx.moveTo(lensX, lensY-160); ctx.lineTo(lensX, lensY+160); ctx.strokeStyle='rgba(41,128,185,0.3)'; ctx.setLineDash([5,5]); ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function drawHashMarks(x, yStart, yEnd, d) { ctx.strokeStyle='#7f8c8d'; ctx.lineWidth=1; for(let y=yStart; y<yEnd; y+=10) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+10*d, y+10); ctx.stroke(); } }
+        function drawHashMarksCurve(xBase, yStart, yEnd, d, dir) { ctx.strokeStyle='#7f8c8d'; ctx.lineWidth=1; for(let y=yStart; y<yEnd; y+=10) { let p=(y-lensY)/150; let off=(1-p*p)*d; let x=xBase+off; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+10, y+10); ctx.stroke(); } }
+
+        function drawObject(x, axisY, scaleM, opacity = 1.0) {
+            ctx.save(); ctx.globalAlpha = opacity;
+            ctx.translate(x, axisY); ctx.scale(scaleM, scaleM); 
+            const h = baseObjHeight; 
+            if (objectType === 'candle') {
+                const flameCenterY = -h; const bodyTopY = -h + 15;
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(-6, bodyTopY, 12, h - 15); 
+                ctx.beginPath(); ctx.moveTo(0, bodyTopY); ctx.lineTo(0, flameCenterY); ctx.lineWidth = 2; ctx.strokeStyle='#333'; ctx.stroke();
+                ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(0, flameCenterY, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#e67e22'; ctx.beginPath(); ctx.arc(0, flameCenterY, 3, 0, Math.PI*2); ctx.fill();
+            } else {
+                ctx.fillStyle = '#2c3e50'; ctx.font = `bold ${h}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText("F", 0, 0);
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h); ctx.strokeStyle = 'blue'; ctx.lineWidth = Math.max(2, 2/Math.abs(scaleM)); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-5, -h+10); ctx.lineTo(0, -h); ctx.lineTo(5, -h+10); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        function drawBlocker() { ctx.fillStyle = '#34495e'; ctx.fillRect(lensX - 2, lensY - 160, 4, 160); ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.fillText("遮擋", lensX - 12, lensY - 100); }
+        function drawPoints() { let fR=lensX+f_mag; let fL=lensX-f_mag; if(currentType==='planeMirror')return; drawPoint(fR, lensY, 'red', 'F'); drawPoint(fL, lensY, 'red', 'F'); drawPoint(lensX+2*f_mag, lensY, 'blue', '2F'); drawPoint(lensX-2*f_mag, lensY, 'blue', '2F'); }
+        function drawPoint(x, y, color, label) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill(); ctx.fillStyle = '#7f8c8d'; ctx.font = '12px Arial'; ctx.fillText(label, x - 5, y + 20); }
+        function drawGrid() { ctx.strokeStyle='#e0e0e0'; ctx.lineWidth=1; for(let x=lensX;x<canvas.width;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();} for(let x=lensX;x>0;x-=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();} }
+        function drawAxis() { ctx.beginPath(); ctx.moveTo(0, lensY); ctx.lineTo(canvas.width, lensY); ctx.strokeStyle='#95a5a6'; ctx.lineWidth=2; ctx.stroke(); }
+        function determineNature(u, v, m) { if(currentType==='planeMirror')return "正立 等大 虛像"; if(v<0){if(Math.abs(m)<1)return "正立 縮小 虛像";return "正立 放大 虛像";} let size=Math.abs(m)>1.05?"放大":(Math.abs(m)<0.95?"縮小":"相等"); return `倒立 ${size} 實像`; }
+        function updateInfo(u, v, m, text) { document.getElementById('uDisplay').innerText = Math.round(u); document.getElementById('vDisplay').innerText = (v === Infinity) ? "∞" : Math.round(Math.abs(v)); document.getElementById('mDisplay').innerText = Math.abs(m).toFixed(2) + "x"; const nature = document.getElementById('imageNature'); nature.innerText = text; if(text.includes("虛像")) nature.style.color = "#e67e22"; else if(text.includes("不成像")) nature.style.color = "#c0392b"; else nature.style.color = "#27ae60"; }
+
+        updateSettings();
+    </script>
+</body>
+</html>
